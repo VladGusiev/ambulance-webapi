@@ -19,6 +19,9 @@ case "$command_name" in
     trap 'mongo down' EXIT
     go run "${project_root}/cmd/ambulance-api-service"
     ;;
+  test)
+    go test -v ./...
+    ;;
   mongo)
     mongo up
     ;;
