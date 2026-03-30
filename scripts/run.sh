@@ -28,6 +28,9 @@ case "$command_name" in
   openapi)
     docker run --rm -ti -v "${project_root}:/local" openapitools/openapi-generator-cli generate -c /local/scripts/generator-cfg.yaml
     ;;
+  docker)
+    docker build -t vladgusiev/ambulance-wl-webapi:local-build -f "${project_root}/build/docker/Dockerfile" .
+    ;;
   *)
     echo "Unknown command: ${command_name}" >&2
     exit 1
