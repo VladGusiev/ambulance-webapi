@@ -16,6 +16,12 @@ import (
 
 	"github.com/VladGusiev/ambulance-webapi/internal/db_service"
 	"github.com/gin-contrib/cors"
+
+	"go.opentelemetry.io/contrib/exporters/autoexport"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
+	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 )
 
 func main() {
@@ -34,6 +40,19 @@ func main() {
 	}
 	// Set the global log level
 	zerolog.SetGlobalLevel(level)
+
+	// initialize trace exporter
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	traceExporter, err := autoexport.NewSpanExporter(ctx)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to initialize trace exporter")
+	}
+
+	traceProvider := tracesdk.NewTracerProvider(tracesdk.WithBatcher(traceExporter))
+	otel.SetTracerProvider(traceProvider)
+	otel.SetTextMapPropagator(propagation.TraceContext{})
+	defer traceProvider.Shutdown(ctx)
 
 	log.Info().Msg("Server started")
 	port := os.Getenv("AMBULANCE_API_PORT")
@@ -74,4 +93,5 @@ func main() {
 	ambulance_wl.NewRouterWithGinEngine(engine, *handleFunctions)
 	engine.GET("/openapi", api.HandleOpenApi)
 	engine.Run(":" + port)
+	engine.Use(otelgin.Middleware("ambulance-webapi"))
 }

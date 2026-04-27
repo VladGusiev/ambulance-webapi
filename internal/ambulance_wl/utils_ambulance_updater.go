@@ -5,6 +5,9 @@ import (
 
 	"github.com/VladGusiev/ambulance-webapi/internal/db_service"
 	"github.com/gin-gonic/gin"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
 )
 
 type ambulanceUpdater = func(
@@ -13,8 +16,16 @@ type ambulanceUpdater = func(
 ) (updatedAmbulance *Ambulance, responseContent interface{}, status int)
 
 func updateAmbulanceFunc(ctx *gin.Context, updater ambulanceUpdater) {
+
+	tracer := otel.Tracer("ambulance-wl")
+	spanCtx, span := tracer.Start(ctx.Request.Context(), "updateAmbulanceFunc")
+	defer span.End()
+
+	ctx.Request = ctx.Request.WithContext(spanCtx)
+
 	value, exists := ctx.Get("db_service")
 	if !exists {
+		span.SetStatus(codes.Error, "db_service not found")
 		ctx.JSON(
 			http.StatusInternalServerError,
 			gin.H{
@@ -27,6 +38,7 @@ func updateAmbulanceFunc(ctx *gin.Context, updater ambulanceUpdater) {
 
 	db, ok := value.(db_service.DbService[Ambulance])
 	if !ok {
+		span.SetStatus(codes.Error, "db_service context is not of type db_service.DbService")
 		ctx.JSON(
 			http.StatusInternalServerError,
 			gin.H{
@@ -45,6 +57,7 @@ func updateAmbulanceFunc(ctx *gin.Context, updater ambulanceUpdater) {
 	case nil:
 		// continue
 	case db_service.ErrNotFound:
+		span.SetStatus(codes.Error, "Ambulance not found")
 		ctx.JSON(
 			http.StatusNotFound,
 			gin.H{
@@ -55,6 +68,7 @@ func updateAmbulanceFunc(ctx *gin.Context, updater ambulanceUpdater) {
 		)
 		return
 	default:
+		span.SetStatus(codes.Error, "Failed to load ambulance from database")
 		ctx.JSON(
 			http.StatusBadGateway,
 			gin.H{
@@ -66,6 +80,7 @@ func updateAmbulanceFunc(ctx *gin.Context, updater ambulanceUpdater) {
 	}
 
 	if !ok {
+		span.SetStatus(codes.Error, "Failed to cast ambulance from database")
 		ctx.JSON(
 			http.StatusInternalServerError,
 			gin.H{
@@ -86,12 +101,14 @@ func updateAmbulanceFunc(ctx *gin.Context, updater ambulanceUpdater) {
 
 	switch err {
 	case nil:
+		span.SetStatus(codes.Ok, "Ambulance updated")
 		if responseObject != nil {
 			ctx.JSON(status, responseObject)
 		} else {
 			ctx.AbortWithStatus(status)
 		}
 	case db_service.ErrNotFound:
+		span.SetStatus(codes.Error, "Ambulance not found")
 		ctx.JSON(
 			http.StatusNotFound,
 			gin.H{
@@ -101,6 +118,7 @@ func updateAmbulanceFunc(ctx *gin.Context, updater ambulanceUpdater) {
 			},
 		)
 	default:
+		span.SetStatus(codes.Error, "Failed to update ambulance in database")
 		ctx.JSON(
 			http.StatusBadGateway,
 			gin.H{
