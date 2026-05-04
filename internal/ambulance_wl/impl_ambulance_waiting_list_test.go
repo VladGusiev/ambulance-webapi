@@ -14,6 +14,8 @@ import (
 
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/otel/trace/noop"
+
+	metricNoop "go.opentelemetry.io/otel/metric/noop"
 )
 
 type AmbulanceWlSuite struct {
@@ -101,8 +103,11 @@ func (suite *AmbulanceWlSuite) Test_UpdateWl_DbServiceUpdateCalled() {
 	ctx.Request = httptest.NewRequest("POST", "/ambulance/test-ambulance/waitinglist/test-entry", strings.NewReader(json))
 
 	sut := implAmbulanceWaitingListAPI{
-		tracer: noop.NewTracerProvider().Tracer("ambulance-wl"),
-		logger: zerolog.Nop(),
+		tracer:                noop.NewTracerProvider().Tracer("ambulance-wl"),
+		logger:                zerolog.Nop(),
+		entriesCreatedCounter: metricNoop.Int64Counter{},
+		entriesUpdatedCounter: metricNoop.Int64Counter{},
+		entriesDeletedCounter: metricNoop.Int64Counter{},
 	}
 
 	// ACT

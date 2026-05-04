@@ -15,17 +15,53 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
+
+	"go.opentelemetry.io/otel/metric"
 )
 
 type implAmbulanceWaitingListAPI struct {
 	logger zerolog.Logger
 	tracer trace.Tracer
+
+	entriesCreatedCounter metric.Int64Counter
+	entriesUpdatedCounter metric.Int64Counter
+	entriesDeletedCounter metric.Int64Counter
 }
 
 func NewAmbulanceWaitingListApi() AmbulanceWaitingListAPI {
+	meter := otel.Meter("ambulance-wl")
+
+	entriesCreatedCounter, err := meter.Int64Counter(
+		"ambulance_waiting_list_entries_created_total",
+		metric.WithDescription("Total number of entries created in the waiting list API"),
+	)
+
+	if err != nil {
+		panic(err)
+	}
+
+	entriesUpdatedCounter, err := meter.Int64Counter(
+		"ambulance_waiting_list_entries_updated_total",
+		metric.WithDescription("Total number of entries updated in the waiting list API"),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	entriesDeletedCounter, err := meter.Int64Counter(
+		"ambulance_waiting_list_entries_deleted_total",
+		metric.WithDescription("Total number of entries deleted in the waiting list API"),
+	)
+	if err != nil {
+		panic(err)
+	}
 	return &implAmbulanceWaitingListAPI{
 		logger: log.With().Str("component", "ambulance-wl").Logger(),
 		tracer: otel.Tracer("ambulance-wl"),
+
+		entriesCreatedCounter: entriesCreatedCounter,
+		entriesUpdatedCounter: entriesUpdatedCounter,
+		entriesDeletedCounter: entriesDeletedCounter,
 	}
 }
 
